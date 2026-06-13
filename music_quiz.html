@@ -1,0 +1,722 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🎵 음악 수행평가 연습</title>
+<style>
+  :root {
+    --bg: #0f0f1a;
+    --surface: #1a1a2e;
+    --surface2: #16213e;
+    --accent: #e8c97e;
+    --accent2: #c9a84c;
+    --text: #f0ece0;
+    --text2: #a89f8c;
+    --border: rgba(232,201,126,0.2);
+    --correct: #4ade80;
+    --wrong: #f87171;
+    --radius: 12px;
+    --staff: rgba(232,201,126,0.15);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Noto Sans KR', 'Apple SD Gothic Neo', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  /* ── Header ── */
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 1.2rem 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky; top: 0; z-index: 100;
+  }
+  header h1 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    color: var(--accent);
+  }
+  header p { font-size: 0.78rem; color: var(--text2); margin-top: 2px; }
+
+  /* ── Tabs ── */
+  .tabs {
+    display: flex;
+    background: var(--surface2);
+    border-bottom: 1px solid var(--border);
+  }
+  .tab-btn {
+    flex: 1; padding: 0.9rem;
+    background: none; border: none; cursor: pointer;
+    color: var(--text2); font-size: 0.9rem; font-family: inherit;
+    transition: all 0.2s;
+    border-bottom: 2px solid transparent;
+  }
+  .tab-btn.active {
+    color: var(--accent);
+    border-bottom: 2px solid var(--accent);
+    background: rgba(232,201,126,0.05);
+  }
+
+  /* ── Staff decoration ── */
+  .staff-deco {
+    height: 3px;
+    background: repeating-linear-gradient(
+      to right,
+      transparent 0, transparent 20px,
+      var(--staff) 20px, var(--staff) 21px
+    );
+    margin: 0;
+  }
+
+  /* ── Sections ── */
+  .section { display: none; padding: 1.5rem 1.5rem 4rem; max-width: 720px; margin: 0 auto; }
+  .section.active { display: block; }
+
+  /* ── Song List (Study Mode) ── */
+  .song-list { display: flex; flex-direction: column; gap: 0.6rem; }
+
+  .song-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0.9rem 1.1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.9rem;
+    transition: border-color 0.2s;
+  }
+  .song-card:hover { border-color: rgba(232,201,126,0.45); }
+  .song-card.playing { border-color: var(--accent); background: rgba(232,201,126,0.07); }
+
+  .song-num {
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    background: rgba(232,201,126,0.12);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.72rem; color: var(--accent2); font-weight: 600;
+    flex-shrink: 0;
+  }
+  .song-info { flex: 1; min-width: 0; }
+  .song-title { font-size: 0.88rem; font-weight: 500; line-height: 1.4; }
+  .song-composer { font-size: 0.75rem; color: var(--text2); margin-top: 1px; }
+
+  .play-btn {
+    width: 38px; height: 38px; border-radius: 50%;
+    border: 1px solid var(--border);
+    background: rgba(232,201,126,0.1);
+    color: var(--accent); cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.9rem; transition: all 0.2s; flex-shrink: 0;
+  }
+  .play-btn:hover { background: rgba(232,201,126,0.22); border-color: var(--accent); }
+  .play-btn.active { background: var(--accent); color: var(--bg); }
+
+  /* Audio progress bar */
+  .audio-bar {
+    display: none;
+    height: 3px;
+    background: rgba(232,201,126,0.15);
+    border-radius: 2px;
+    margin-top: 0.5rem;
+    overflow: hidden;
+    cursor: pointer;
+    position: relative;
+  }
+  .audio-bar.visible { display: block; }
+  .audio-progress {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 2px;
+    width: 0%;
+    transition: width 0.3s;
+  }
+
+  /* ── Quiz Mode ── */
+  .quiz-setup {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+  .quiz-setup h2 { font-size: 1rem; color: var(--accent); margin-bottom: 1rem; }
+
+  .count-control {
+    display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;
+  }
+  .count-control label { font-size: 0.85rem; color: var(--text2); }
+  .count-control select {
+    background: var(--surface2); border: 1px solid var(--border);
+    color: var(--text); border-radius: 8px; padding: 0.4rem 0.8rem;
+    font-family: inherit; font-size: 0.85rem; cursor: pointer;
+  }
+
+  .start-btn {
+    background: var(--accent); color: var(--bg);
+    border: none; border-radius: var(--radius);
+    padding: 0.75rem 2rem; font-size: 0.9rem; font-weight: 700;
+    cursor: pointer; transition: opacity 0.2s; font-family: inherit;
+    letter-spacing: 0.03em;
+  }
+  .start-btn:hover { opacity: 0.85; }
+
+  /* ── Quiz Running ── */
+  #quiz-running { display: none; }
+
+  .quiz-header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 1.2rem; flex-wrap: wrap; gap: 0.5rem;
+  }
+  .quiz-progress-text { font-size: 0.82rem; color: var(--text2); }
+  .score-badge {
+    background: rgba(232,201,126,0.12);
+    border: 1px solid var(--border);
+    border-radius: 20px; padding: 0.3rem 0.8rem;
+    font-size: 0.8rem; color: var(--accent);
+  }
+
+  .progress-bar-wrap {
+    height: 4px; background: rgba(255,255,255,0.08);
+    border-radius: 2px; margin-bottom: 1.5rem; overflow: hidden;
+  }
+  .progress-bar-fill {
+    height: 100%; background: var(--accent);
+    border-radius: 2px; transition: width 0.4s;
+  }
+
+  .quiz-player-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.8rem;
+    text-align: center;
+    margin-bottom: 1.2rem;
+  }
+
+  .big-play-btn {
+    width: 72px; height: 72px; border-radius: 50%;
+    border: 2px solid var(--accent);
+    background: rgba(232,201,126,0.1);
+    color: var(--accent); font-size: 1.6rem; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 1rem; transition: all 0.2s;
+  }
+  .big-play-btn:hover { background: rgba(232,201,126,0.25); }
+  .big-play-btn.active { background: var(--accent); color: var(--bg); }
+
+  .player-hint { font-size: 0.78rem; color: var(--text2); }
+
+  .quiz-audio-bar {
+    height: 4px; background: rgba(232,201,126,0.12);
+    border-radius: 2px; margin: 1rem 0 0; overflow: hidden;
+  }
+  .quiz-audio-progress {
+    height: 100%; background: var(--accent); border-radius: 2px;
+    width: 0%; transition: width 0.3s;
+  }
+
+  .answer-area { margin-bottom: 1rem; }
+  .answer-area label { font-size: 0.8rem; color: var(--text2); display: block; margin-bottom: 0.5rem; }
+
+  .answer-input {
+    width: 100%; background: var(--surface);
+    border: 1px solid var(--border); border-radius: 10px;
+    padding: 0.8rem 1rem; color: var(--text);
+    font-size: 0.95rem; font-family: inherit;
+    transition: border-color 0.2s; outline: none;
+  }
+  .answer-input:focus { border-color: var(--accent); }
+  .answer-input.correct { border-color: var(--correct); background: rgba(74,222,128,0.07); }
+  .answer-input.wrong { border-color: var(--wrong); background: rgba(248,113,113,0.07); }
+
+  .hint-row {
+    display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap;
+  }
+  .hint-chip {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 20px; padding: 0.3rem 0.75rem;
+    font-size: 0.75rem; color: var(--text2); cursor: pointer;
+    transition: all 0.2s; user-select: none;
+  }
+  .hint-chip:hover { border-color: var(--accent); color: var(--accent); }
+
+  .submit-btn {
+    width: 100%; background: var(--accent); color: var(--bg);
+    border: none; border-radius: var(--radius);
+    padding: 0.8rem; font-size: 0.9rem; font-weight: 700;
+    cursor: pointer; font-family: inherit; transition: opacity 0.2s;
+  }
+  .submit-btn:hover { opacity: 0.85; }
+  .submit-btn:disabled { opacity: 0.4; cursor: default; }
+
+  .feedback-box {
+    border-radius: var(--radius); padding: 1rem 1.2rem;
+    margin-top: 1rem; display: none; animation: fadeIn 0.3s;
+  }
+  .feedback-box.show { display: block; }
+  .feedback-box.correct-fb { background: rgba(74,222,128,0.1); border: 1px solid rgba(74,222,128,0.3); }
+  .feedback-box.wrong-fb { background: rgba(248,113,113,0.08); border: 1px solid rgba(248,113,113,0.3); }
+  .feedback-title { font-size: 0.9rem; font-weight: 700; margin-bottom: 0.3rem; }
+  .feedback-title.ok { color: var(--correct); }
+  .feedback-title.no { color: var(--wrong); }
+  .feedback-answer { font-size: 0.82rem; color: var(--text2); }
+  .feedback-answer span { color: var(--text); font-weight: 500; }
+
+  .next-btn {
+    width: 100%; margin-top: 0.8rem;
+    background: transparent; border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 0.7rem;
+    color: var(--text); font-size: 0.85rem; font-family: inherit;
+    cursor: pointer; transition: all 0.2s;
+  }
+  .next-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* ── Result Screen ── */
+  #quiz-result { display: none; }
+
+  .result-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px; padding: 2rem;
+    text-align: center; margin-bottom: 1.5rem;
+  }
+  .result-score { font-size: 3.5rem; font-weight: 700; color: var(--accent); line-height: 1; }
+  .result-label { font-size: 0.85rem; color: var(--text2); margin-top: 0.4rem; margin-bottom: 1.2rem; }
+  .result-stars { font-size: 1.6rem; margin-bottom: 0.5rem; letter-spacing: 0.1em; }
+  .result-msg { font-size: 0.88rem; color: var(--text2); }
+
+  .wrong-list { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1.5rem; }
+  .wrong-list h3 { font-size: 0.82rem; color: var(--text2); margin-bottom: 0.5rem; }
+  .wrong-item {
+    background: var(--surface); border: 1px solid rgba(248,113,113,0.2);
+    border-radius: 10px; padding: 0.7rem 1rem;
+    display: flex; justify-content: space-between; align-items: center; gap: 0.5rem;
+  }
+  .wrong-item .wi-num { font-size: 0.7rem; color: var(--text2); flex-shrink: 0; }
+  .wrong-item .wi-name { font-size: 0.85rem; flex: 1; }
+  .wrong-item .wi-my { font-size: 0.78rem; color: var(--wrong); flex-shrink: 0; }
+
+  .retry-btn {
+    width: 100%; background: var(--accent); color: var(--bg);
+    border: none; border-radius: var(--radius); padding: 0.85rem;
+    font-size: 0.9rem; font-weight: 700; cursor: pointer; font-family: inherit;
+    transition: opacity 0.2s;
+  }
+  .retry-btn:hover { opacity: 0.85; }
+
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+
+  .section-title {
+    font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em;
+    color: var(--text2); margin-bottom: 0.8rem; padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border);
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>🎼 음악 수행평가 연습</h1>
+    <p>17곡 · 작곡가와 곡명을 맞혀보세요</p>
+  </div>
+</header>
+
+<div class="tabs">
+  <button class="tab-btn active" onclick="switchTab('study')">📚 학습 모드</button>
+  <button class="tab-btn" onclick="switchTab('quiz')">🎯 시험 모드</button>
+</div>
+<div class="staff-deco"></div>
+
+<!-- ══ STUDY MODE ══ -->
+<div id="section-study" class="section active">
+  <p class="section-title">곡 목록 — 재생 버튼을 눌러 들어보세요</p>
+  <div class="song-list" id="song-list"></div>
+</div>
+
+<!-- ══ QUIZ MODE ══ -->
+<div id="section-quiz" class="section">
+
+  <div id="quiz-setup-panel">
+    <div class="quiz-setup">
+      <h2>🎯 시험 설정</h2>
+      <div class="count-control">
+        <label>문제 수</label>
+        <select id="quiz-count">
+          <option value="5">5문제</option>
+          <option value="8">8문제</option>
+          <option value="10" selected>10문제</option>
+          <option value="13">13문제</option>
+          <option value="17">전체 17문제</option>
+        </select>
+        <button class="start-btn" onclick="startQuiz()">시험 시작 →</button>
+      </div>
+    </div>
+    <div style="font-size:0.8rem; color:var(--text2); line-height:1.7; padding: 0 0.2rem;">
+      💡 곡을 들으면서 <strong style="color:var(--text);">작곡가 – 곡명</strong>을 입력하세요.<br>
+      힌트 버튼으로 작곡가나 첫 글자를 확인할 수 있어요.
+    </div>
+  </div>
+
+  <div id="quiz-running">
+    <div class="quiz-header">
+      <span class="quiz-progress-text" id="progress-text">1 / 10</span>
+      <span class="score-badge" id="score-badge">점수: 0</span>
+    </div>
+    <div class="progress-bar-wrap">
+      <div class="progress-bar-fill" id="progress-bar" style="width:0%"></div>
+    </div>
+
+    <div class="quiz-player-card">
+      <button class="big-play-btn" id="quiz-play-btn" onclick="toggleQuizPlay()">▶</button>
+      <p class="player-hint" id="player-hint">버튼을 눌러 곡을 들어보세요</p>
+      <div class="quiz-audio-bar">
+        <div class="quiz-audio-progress" id="quiz-audio-progress"></div>
+      </div>
+    </div>
+
+    <div class="answer-area">
+      <label>정답 입력</label>
+      <input type="text" class="answer-input" id="answer-input"
+        placeholder="예: 모차르트 – 작은별 변주곡"
+        onkeydown="if(event.key==='Enter') checkAnswer()">
+    </div>
+
+    <div class="hint-row">
+      <span class="hint-chip" onclick="showHint('composer')">🎻 작곡가 힌트</span>
+      <span class="hint-chip" onclick="showHint('first')">🔤 첫 글자 힌트</span>
+    </div>
+
+    <button class="submit-btn" id="submit-btn" onclick="checkAnswer()">정답 확인</button>
+
+    <div class="feedback-box" id="feedback-box">
+      <div class="feedback-title" id="feedback-title"></div>
+      <div class="feedback-answer" id="feedback-answer"></div>
+    </div>
+    <button class="next-btn" id="next-btn" style="display:none" onclick="nextQuestion()">다음 문제 →</button>
+  </div>
+
+  <div id="quiz-result">
+    <div class="result-card">
+      <div class="result-stars" id="result-stars"></div>
+      <div class="result-score" id="result-score"></div>
+      <div class="result-label" id="result-label"></div>
+      <div class="result-msg" id="result-msg"></div>
+    </div>
+    <div class="wrong-list" id="wrong-list-wrap"></div>
+    <button class="retry-btn" onclick="resetQuiz()">다시 시험 보기 🔄</button>
+  </div>
+</div>
+
+<audio id="main-audio"></audio>
+
+<script>
+const SONGS = [
+  { id:1,  composer:"모차르트", title:"교향곡 40번 1악장" },
+  { id:2,  composer:"비발디",   title:"사계 봄 1악장" },
+  { id:3,  composer:"바흐",     title:"토카타와 푸가" },
+  { id:4,  composer:"헨델",     title:"울게하소서" },
+  { id:5,  composer:"비발디",   title:"사계 겨울 1악장" },
+  { id:6,  composer:"헨델",     title:"할렐루야" },
+  { id:7,  composer:"하이든",   title:"트럼펫 협주곡 3악장" },
+  { id:8,  composer:"모차르트", title:"작은별 변주곡" },
+  { id:9,  composer:"베토벤",   title:"합창교향곡 4악장" },
+  { id:10, composer:"모차르트", title:"밤의 여왕 아리아" },
+  { id:11, composer:"베토벤",   title:"운명교향곡 4악장" },
+  { id:12, composer:"비발디",   title:"사계 여름 3악장" },
+  { id:13, composer:"비발디",   title:"사계 가을 1악장" },
+  { id:14, composer:"바흐",     title:"G선상의 아리아" },
+  { id:15, composer:"모차르트", title:"파파게노 파파게나 2중창" },
+  { id:16, composer:"하이든",   title:"종달새 1악장" },
+  { id:17, composer:"베토벤",   title:"운명교향곡 1악장" },
+];
+
+const MUSIC_FOLDER = "music"; // ← 폴더명 여기서 바꾸세요
+
+function filePath(song) {
+  return `${MUSIC_FOLDER}/${song.composer} - ${song.title}.mp3`;
+}
+
+// ── Audio engine ──
+const audio = document.getElementById('main-audio');
+let studyPlayingId = null;
+let quizAudioInterval = null;
+
+// ── Tab switch ──
+function switchTab(tab) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('section-' + tab).classList.add('active');
+  document.querySelectorAll('.tab-btn')[tab === 'study' ? 0 : 1].classList.add('active');
+  stopAllAudio();
+}
+
+// ── Build study list ──
+function buildStudyList() {
+  const list = document.getElementById('song-list');
+  list.innerHTML = SONGS.map(s => `
+    <div class="song-card" id="card-${s.id}">
+      <div class="song-num">${s.id}</div>
+      <div class="song-info">
+        <div class="song-title">${s.composer} – ${s.title}</div>
+        <div class="song-composer" id="composer-label-${s.id}" style="opacity:0.6"></div>
+        <div class="audio-bar" id="bar-${s.id}">
+          <div class="audio-progress" id="prog-${s.id}"></div>
+        </div>
+      </div>
+      <button class="play-btn" id="playbtn-${s.id}" onclick="toggleStudyPlay(${s.id})" aria-label="재생">▶</button>
+    </div>
+  `).join('');
+}
+
+function toggleStudyPlay(id) {
+  if (studyPlayingId === id && !audio.paused) {
+    audio.pause();
+    setStudyUI(id, false);
+    studyPlayingId = null;
+    return;
+  }
+  stopAllAudio();
+  studyPlayingId = id;
+  const song = SONGS.find(s => s.id === id);
+  audio.src = filePath(song);
+  audio.play().catch(() => alert('파일을 찾을 수 없습니다: ' + filePath(song)));
+  setStudyUI(id, true);
+
+  audio.ontimeupdate = () => {
+    if (!audio.duration) return;
+    const pct = (audio.currentTime / audio.duration) * 100;
+    const el = document.getElementById('prog-' + studyPlayingId);
+    if (el) el.style.width = pct + '%';
+  };
+  audio.onended = () => {
+    setStudyUI(id, false);
+    studyPlayingId = null;
+  };
+}
+
+function setStudyUI(id, playing) {
+  const card = document.getElementById('card-' + id);
+  const btn = document.getElementById('playbtn-' + id);
+  const bar = document.getElementById('bar-' + id);
+  if (!card) return;
+  card.classList.toggle('playing', playing);
+  btn.classList.toggle('active', playing);
+  btn.textContent = playing ? '⏸' : '▶';
+  bar.classList.toggle('visible', playing);
+  if (!playing) {
+    const prog = document.getElementById('prog-' + id);
+    if (prog) prog.style.width = '0%';
+  }
+}
+
+function stopAllAudio() {
+  audio.pause();
+  if (studyPlayingId) { setStudyUI(studyPlayingId, false); studyPlayingId = null; }
+  clearInterval(quizAudioInterval);
+  const qbtn = document.getElementById('quiz-play-btn');
+  if (qbtn) { qbtn.classList.remove('active'); qbtn.textContent = '▶'; }
+}
+
+// ── Quiz ──
+let quizQuestions = [];
+let quizIndex = 0;
+let quizScore = 0;
+let answered = false;
+let wrongAnswers = [];
+let hintUsed = { composer: false, first: false };
+
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function startQuiz() {
+  const n = parseInt(document.getElementById('quiz-count').value);
+  quizQuestions = shuffle(SONGS).slice(0, n);
+  quizIndex = 0; quizScore = 0; wrongAnswers = [];
+
+  document.getElementById('quiz-setup-panel').style.display = 'none';
+  document.getElementById('quiz-running').style.display = 'block';
+  document.getElementById('quiz-result').style.display = 'none';
+  loadQuestion();
+}
+
+function loadQuestion() {
+  answered = false;
+  hintUsed = { composer: false, first: false };
+  const total = quizQuestions.length;
+  const song = quizQuestions[quizIndex];
+
+  document.getElementById('progress-text').textContent = `${quizIndex + 1} / ${total}`;
+  document.getElementById('score-badge').textContent = `점수: ${quizScore}`;
+  document.getElementById('progress-bar').style.width = `${(quizIndex / total) * 100}%`;
+
+  const inp = document.getElementById('answer-input');
+  inp.value = ''; inp.className = 'answer-input'; inp.disabled = false;
+  inp.placeholder = '예: 모차르트 – 작은별 변주곡';
+
+  document.getElementById('feedback-box').className = 'feedback-box';
+  document.getElementById('next-btn').style.display = 'none';
+  document.getElementById('submit-btn').disabled = false;
+  document.getElementById('player-hint').textContent = '버튼을 눌러 곡을 들어보세요';
+  document.getElementById('quiz-play-btn').classList.remove('active');
+  document.getElementById('quiz-play-btn').textContent = '▶';
+  document.getElementById('quiz-audio-progress').style.width = '0%';
+
+  stopAllAudio();
+  audio.src = filePath(song);
+}
+
+function toggleQuizPlay() {
+  const btn = document.getElementById('quiz-play-btn');
+  if (!audio.paused) {
+    audio.pause();
+    btn.classList.remove('active');
+    btn.textContent = '▶';
+    document.getElementById('player-hint').textContent = '일시정지됨';
+    return;
+  }
+  audio.play().catch(() => alert('파일을 찾을 수 없습니다: ' + audio.src));
+  btn.classList.add('active');
+  btn.textContent = '⏸';
+  document.getElementById('player-hint').textContent = '재생 중...';
+
+  audio.ontimeupdate = () => {
+    if (!audio.duration) return;
+    const pct = (audio.currentTime / audio.duration) * 100;
+    document.getElementById('quiz-audio-progress').style.width = pct + '%';
+  };
+  audio.onended = () => {
+    btn.classList.remove('active');
+    btn.textContent = '▶';
+    document.getElementById('player-hint').textContent = '재생 완료 · 다시 들으려면 버튼을 누르세요';
+    document.getElementById('quiz-audio-progress').style.width = '0%';
+    audio.currentTime = 0;
+  };
+}
+
+function normalize(s) {
+  return s.replace(/\s/g,'').replace(/[-–—]/g,'').replace(/[!?！？]/g,'').toLowerCase();
+}
+
+function checkAnswer() {
+  if (answered) return;
+  const song = quizQuestions[quizIndex];
+  const raw = document.getElementById('answer-input').value.trim();
+  if (!raw) { document.getElementById('answer-input').focus(); return; }
+
+  const userN = normalize(raw);
+  const fullN = normalize(song.composer + song.title);
+  const ok = userN === fullN ||
+              userN === normalize(song.title) ||
+              (userN.includes(normalize(song.composer)) && userN.includes(normalize(song.title)));
+
+  answered = true;
+  document.getElementById('submit-btn').disabled = true;
+  document.getElementById('answer-input').disabled = true;
+  document.getElementById('next-btn').style.display = 'block';
+
+  const fb = document.getElementById('feedback-box');
+  const ftitle = document.getElementById('feedback-title');
+  const fans = document.getElementById('feedback-answer');
+
+  if (ok) {
+    quizScore++;
+    document.getElementById('answer-input').classList.add('correct');
+    fb.className = 'feedback-box show correct-fb';
+    ftitle.className = 'feedback-title ok';
+    ftitle.textContent = '✅ 정답입니다!';
+    fans.innerHTML = `정답: <span>${song.composer} – ${song.title}</span>`;
+  } else {
+    wrongAnswers.push({ song, myAnswer: raw });
+    document.getElementById('answer-input').classList.add('wrong');
+    fb.className = 'feedback-box show wrong-fb';
+    ftitle.className = 'feedback-title no';
+    ftitle.textContent = '❌ 오답입니다';
+    fans.innerHTML = `정답: <span>${song.composer} – ${song.title}</span>`;
+  }
+  document.getElementById('score-badge').textContent = `점수: ${quizScore}`;
+}
+
+function nextQuestion() {
+  quizIndex++;
+  if (quizIndex >= quizQuestions.length) {
+    showResult();
+  } else {
+    loadQuestion();
+  }
+}
+
+function showHint(type) {
+  const song = quizQuestions[quizIndex];
+  if (answered) return;
+  if (type === 'composer' && !hintUsed.composer) {
+    hintUsed.composer = true;
+    document.getElementById('player-hint').textContent = `🎻 작곡가: ${song.composer}`;
+  } else if (type === 'first' && !hintUsed.first) {
+    hintUsed.first = true;
+    document.getElementById('player-hint').textContent = `🔤 곡명 첫 글자: ${song.title[0]}…`;
+  }
+}
+
+function showResult() {
+  stopAllAudio();
+  document.getElementById('quiz-running').style.display = 'none';
+  document.getElementById('quiz-result').style.display = 'block';
+
+  const total = quizQuestions.length;
+  const pct = Math.round((quizScore / total) * 100);
+  document.getElementById('result-score').textContent = `${quizScore} / ${total}`;
+  document.getElementById('result-label').textContent = `정답률 ${pct}%`;
+
+  let stars = '', msg = '';
+  if (pct === 100) { stars = '⭐⭐⭐⭐⭐'; msg = '완벽해요! 수행평가 준비 끝! 🎉'; }
+  else if (pct >= 80) { stars = '⭐⭐⭐⭐'; msg = '훌륭해요! 조금만 더 연습하면 완벽해요.'; }
+  else if (pct >= 60) { stars = '⭐⭐⭐'; msg = '잘 하고 있어요! 틀린 곡 위주로 다시 들어봐요.'; }
+  else if (pct >= 40) { stars = '⭐⭐'; msg = '더 연습해봐요. 학습 모드에서 복습하고 다시 도전!'; }
+  else { stars = '⭐'; msg = '학습 모드로 돌아가서 곡을 더 들어봐요 📖'; }
+
+  document.getElementById('result-stars').textContent = stars;
+  document.getElementById('result-msg').textContent = msg;
+
+  const wrap = document.getElementById('wrong-list-wrap');
+  if (wrongAnswers.length > 0) {
+    wrap.innerHTML = `<h3>틀린 곡 (${wrongAnswers.length}개)</h3>` +
+      wrongAnswers.map(w => `
+        <div class="wrong-item">
+          <span class="wi-num">#${w.song.id}</span>
+          <span class="wi-name">${w.song.composer} – ${w.song.title}</span>
+          <span class="wi-my">${w.myAnswer || '(미응답)'}</span>
+        </div>`).join('');
+  } else {
+    wrap.innerHTML = '';
+  }
+}
+
+function resetQuiz() {
+  stopAllAudio();
+  document.getElementById('quiz-setup-panel').style.display = 'block';
+  document.getElementById('quiz-running').style.display = 'none';
+  document.getElementById('quiz-result').style.display = 'none';
+}
+
+// ── Init ──
+buildStudyList();
+</script>
+</body>
+</html>
