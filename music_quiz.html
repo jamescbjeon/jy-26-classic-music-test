@@ -587,9 +587,7 @@ function startQuiz() {
 
 function buildDropdown() {
   const list = document.getElementById('dropdown-list');
-  // Shuffle display order so position isn't a hint
-  const shuffled = shuffle([...SONGS]);
-  list.innerHTML = shuffled.map(s => `
+  list.innerHTML = SONGS.map(s => `
     <div class="dropdown-item" id="di-${s.id}" onclick="selectDropdownItem(${s.id})">
       <span class="di-num">${s.id}</span>
       <span>${s.composer} – ${s.title}</span>
