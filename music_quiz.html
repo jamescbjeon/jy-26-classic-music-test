@@ -227,28 +227,59 @@
   .answer-area { margin-bottom: 1rem; }
   .answer-area label { font-size: 0.8rem; color: var(--text2); display: block; margin-bottom: 0.5rem; }
 
-  .answer-input {
+  /* Custom dropdown */
+  .dropdown-wrap { position: relative; }
+
+  .dropdown-selected {
     width: 100%; background: var(--surface);
     border: 1px solid var(--border); border-radius: 10px;
-    padding: 0.8rem 1rem; color: var(--text);
-    font-size: 0.95rem; font-family: inherit;
-    transition: border-color 0.2s; outline: none;
+    padding: 0.8rem 2.5rem 0.8rem 1rem; color: var(--text2);
+    font-size: 0.92rem; font-family: inherit;
+    cursor: pointer; user-select: none;
+    display: flex; align-items: center;
+    transition: border-color 0.2s;
+    position: relative;
   }
-  .answer-input:focus { border-color: var(--accent); }
-  .answer-input.correct { border-color: var(--correct); background: rgba(74,222,128,0.07); }
-  .answer-input.wrong { border-color: var(--wrong); background: rgba(248,113,113,0.07); }
+  .dropdown-selected::after {
+    content: '▾';
+    position: absolute; right: 1rem;
+    color: var(--accent2); font-size: 1rem;
+    transition: transform 0.2s;
+  }
+  .dropdown-selected.open::after { transform: rotate(180deg); }
+  .dropdown-selected.open { border-color: var(--accent); }
+  .dropdown-selected.correct { border-color: var(--correct); background: rgba(74,222,128,0.07); color: var(--text); }
+  .dropdown-selected.wrong   { border-color: var(--wrong);   background: rgba(248,113,113,0.07); color: var(--text); }
+  .dropdown-selected.picked  { color: var(--text); }
+  .dropdown-selected.disabled { cursor: default; pointer-events: none; }
 
-  .hint-row {
-    display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap;
-  }
-  .hint-chip {
+  .dropdown-list {
+    display: none;
+    position: absolute; top: calc(100% + 4px); left: 0; right: 0;
     background: var(--surface2);
-    border: 1px solid var(--border);
-    border-radius: 20px; padding: 0.3rem 0.75rem;
-    font-size: 0.75rem; color: var(--text2); cursor: pointer;
-    transition: all 0.2s; user-select: none;
+    border: 1px solid var(--border); border-radius: 10px;
+    overflow-y: auto; max-height: 260px;
+    z-index: 200;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
   }
-  .hint-chip:hover { border-color: var(--accent); color: var(--accent); }
+  .dropdown-list.open { display: block; }
+
+  .dropdown-item {
+    padding: 0.7rem 1rem;
+    font-size: 0.88rem; cursor: pointer;
+    transition: background 0.15s;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    display: flex; align-items: center; gap: 0.6rem;
+  }
+  .dropdown-item:last-child { border-bottom: none; }
+  .dropdown-item:hover { background: rgba(232,201,126,0.1); }
+  .dropdown-item.selected { background: rgba(232,201,126,0.13); color: var(--accent); }
+  .dropdown-item .di-num {
+    width: 20px; height: 20px; border-radius: 50%;
+    background: rgba(232,201,126,0.1);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.65rem; color: var(--accent2); font-weight: 700; flex-shrink: 0;
+  }
 
   .submit-btn {
     width: 100%; background: var(--accent); color: var(--bg);
@@ -386,15 +417,13 @@
     </div>
 
     <div class="answer-area">
-      <label>정답 입력</label>
-      <input type="text" class="answer-input" id="answer-input"
-        placeholder="예: 모차르트 – 작은별 변주곡"
-        onkeydown="if(event.key==='Enter') checkAnswer()">
-    </div>
-
-    <div class="hint-row">
-      <span class="hint-chip" onclick="showHint('composer')">🎻 작곡가 힌트</span>
-      <span class="hint-chip" onclick="showHint('first')">🔤 첫 글자 힌트</span>
+      <label>정답 선택</label>
+      <div class="dropdown-wrap" id="dropdown-wrap">
+        <div class="dropdown-selected" id="dropdown-selected" onclick="toggleDropdown()">
+          곡을 선택하세요
+        </div>
+        <div class="dropdown-list" id="dropdown-list"></div>
+      </div>
     </div>
 
     <button class="submit-btn" id="submit-btn" onclick="checkAnswer()">정답 확인</button>
@@ -534,7 +563,7 @@ let quizIndex = 0;
 let quizScore = 0;
 let answered = false;
 let wrongAnswers = [];
-let hintUsed = { composer: false, first: false };
+let selectedAnswer = null; // currently selected song id in dropdown
 
 function shuffle(arr) {
   const a = [...arr];
@@ -556,9 +585,53 @@ function startQuiz() {
   loadQuestion();
 }
 
+function buildDropdown() {
+  const list = document.getElementById('dropdown-list');
+  // Shuffle display order so position isn't a hint
+  const shuffled = shuffle([...SONGS]);
+  list.innerHTML = shuffled.map(s => `
+    <div class="dropdown-item" id="di-${s.id}" onclick="selectDropdownItem(${s.id})">
+      <span class="di-num">${s.id}</span>
+      <span>${s.composer} – ${s.title}</span>
+    </div>
+  `).join('');
+}
+
+function toggleDropdown() {
+  if (answered) return;
+  const sel = document.getElementById('dropdown-selected');
+  const list = document.getElementById('dropdown-list');
+  const isOpen = list.classList.contains('open');
+  list.classList.toggle('open', !isOpen);
+  sel.classList.toggle('open', !isOpen);
+}
+
+function selectDropdownItem(id) {
+  selectedAnswer = id;
+  const song = SONGS.find(s => s.id === id);
+  const sel = document.getElementById('dropdown-selected');
+  sel.textContent = `${song.composer} – ${song.title}`;
+  sel.classList.add('picked');
+  sel.classList.remove('open');
+  document.getElementById('dropdown-list').classList.remove('open');
+
+  // highlight selected item
+  document.querySelectorAll('.dropdown-item').forEach(el => el.classList.remove('selected'));
+  document.getElementById('di-' + id).classList.add('selected');
+}
+
+// Close dropdown when clicking outside
+document.addEventListener('click', (e) => {
+  const wrap = document.getElementById('dropdown-wrap');
+  if (wrap && !wrap.contains(e.target)) {
+    document.getElementById('dropdown-list').classList.remove('open');
+    document.getElementById('dropdown-selected').classList.remove('open');
+  }
+});
+
 function loadQuestion() {
   answered = false;
-  hintUsed = { composer: false, first: false };
+  selectedAnswer = null;
   const total = quizQuestions.length;
   const song = quizQuestions[quizIndex];
 
@@ -566,9 +639,12 @@ function loadQuestion() {
   document.getElementById('score-badge').textContent = `점수: ${quizScore}`;
   document.getElementById('progress-bar').style.width = `${(quizIndex / total) * 100}%`;
 
-  const inp = document.getElementById('answer-input');
-  inp.value = ''; inp.className = 'answer-input'; inp.disabled = false;
-  inp.placeholder = '예: 모차르트 – 작은별 변주곡';
+  // Reset dropdown
+  const sel = document.getElementById('dropdown-selected');
+  sel.textContent = '곡을 선택하세요';
+  sel.className = 'dropdown-selected';
+  document.getElementById('dropdown-list').classList.remove('open');
+  buildDropdown();
 
   document.getElementById('feedback-box').className = 'feedback-box';
   document.getElementById('next-btn').style.display = 'none';
@@ -610,26 +686,27 @@ function toggleQuizPlay() {
   };
 }
 
-function normalize(s) {
-  return s.replace(/\s/g,'').replace(/[-–—]/g,'').replace(/[!?！？]/g,'').toLowerCase();
-}
 
 function checkAnswer() {
   if (answered) return;
-  const song = quizQuestions[quizIndex];
-  const raw = document.getElementById('answer-input').value.trim();
-  if (!raw) { document.getElementById('answer-input').focus(); return; }
+  if (!selectedAnswer) {
+    // Shake the dropdown to prompt selection
+    const sel = document.getElementById('dropdown-selected');
+    sel.style.borderColor = 'var(--wrong)';
+    setTimeout(() => sel.style.borderColor = '', 800);
+    return;
+  }
 
-  const userN = normalize(raw);
-  const fullN = normalize(song.composer + song.title);
-  const ok = userN === fullN ||
-              userN === normalize(song.title) ||
-              (userN.includes(normalize(song.composer)) && userN.includes(normalize(song.title)));
+  const song = quizQuestions[quizIndex];
+  const ok = selectedAnswer === song.id;
+  const myAnswer = SONGS.find(s => s.id === selectedAnswer);
 
   answered = true;
   document.getElementById('submit-btn').disabled = true;
-  document.getElementById('answer-input').disabled = true;
   document.getElementById('next-btn').style.display = 'block';
+
+  const sel = document.getElementById('dropdown-selected');
+  sel.classList.add('disabled');
 
   const fb = document.getElementById('feedback-box');
   const ftitle = document.getElementById('feedback-title');
@@ -637,14 +714,14 @@ function checkAnswer() {
 
   if (ok) {
     quizScore++;
-    document.getElementById('answer-input').classList.add('correct');
+    sel.classList.add('correct');
     fb.className = 'feedback-box show correct-fb';
     ftitle.className = 'feedback-title ok';
     ftitle.textContent = '✅ 정답입니다!';
     fans.innerHTML = `정답: <span>${song.composer} – ${song.title}</span>`;
   } else {
-    wrongAnswers.push({ song, myAnswer: raw });
-    document.getElementById('answer-input').classList.add('wrong');
+    wrongAnswers.push({ song, myAnswer: myAnswer ? `${myAnswer.composer} – ${myAnswer.title}` : '' });
+    sel.classList.add('wrong');
     fb.className = 'feedback-box show wrong-fb';
     ftitle.className = 'feedback-title no';
     ftitle.textContent = '❌ 오답입니다';
@@ -662,17 +739,6 @@ function nextQuestion() {
   }
 }
 
-function showHint(type) {
-  const song = quizQuestions[quizIndex];
-  if (answered) return;
-  if (type === 'composer' && !hintUsed.composer) {
-    hintUsed.composer = true;
-    document.getElementById('player-hint').textContent = `🎻 작곡가: ${song.composer}`;
-  } else if (type === 'first' && !hintUsed.first) {
-    hintUsed.first = true;
-    document.getElementById('player-hint').textContent = `🔤 곡명 첫 글자: ${song.title[0]}…`;
-  }
-}
 
 function showResult() {
   stopAllAudio();
